@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Suivi Musculation — 3 Séances</title>
+<title>Suivi Musculation — 3 Séances (cibles intégrées)</title>
 <style>
   :root{
     --bg:#0f1115; --card:#151925; --muted:#8b94a7; --text:#e9eef7; --accent:#7cc5ff; --accent2:#9effa1; --danger:#ff6b6b;
@@ -15,20 +15,21 @@
   @media(min-width:900px){.grid-2{grid-template-columns:1fr 1fr}}
   .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px}
   h1{font-size:24px;margin-bottom:16px}
-  label{font-size:12px;color:var(--muted)}
+  label{font-size:12px;color:var(--muted);display:block;margin:6px 0 4px}
   input,select{width:100%;padding:8px;border-radius:8px;border:1px solid var(--border);background:#0f1320;color:var(--text)}
-  .exo-grid{display:grid;grid-template-columns:2fr repeat(3,1fr) 2fr auto;gap:8px;align-items:center;margin:6px 0}
+  .exo-grid{display:grid;grid-template-columns:2fr 1fr repeat(3,1fr) 2fr auto;gap:8px;align-items:center;margin:6px 0}
   .btn{padding:6px 12px;border-radius:8px;cursor:pointer}
   .primary{background:var(--accent);border:none}
   table{width:100%;border-collapse:collapse;margin-top:8px}
   th,td{border:1px solid var(--border);padding:6px;font-size:13px}
   th{background:#1a1f2e;color:var(--muted)}
   canvas{width:100%;height:260px;background:#0f1320;margin-top:8px;border-radius:8px}
+  .tag{font-size:11px;color:#c9d2ea;background:#0f1320;border:1px solid var(--border);border-radius:999px;padding:3px 8px;display:inline-block;margin-left:6px}
 </style>
 </head>
 <body>
 <div class="container">
-  <h1>📊 Suivi Musculation — 3 Séances prédéfinies</h1>
+  <h1>📊 Suivi Musculation — 3 Séances (avec cibles séries × reps)</h1>
   <div class="grid grid-2">
     <div class="card">
       <label>Séance :</label>
@@ -67,47 +68,73 @@
 </div>
 
 <script>
+// Programme avec cibles (sets, reps)
 const PROGRAM={
- "A":["Hip Thrust","Goblet Squat","Fentes Marchées","Développé Couché","Développé Militaire","Extension Triceps","Planche"],
- "B":["Tirage Vertical","Rowing Haltère","Face Pull","Hip Thrust","Leg Extension","Curl Biceps","Bird-Dog"],
- "C":["Développé Incliné","Élévations Latérales","Glute Bridge","Leg Curl","Presse à Cuisses","Curl Incliné","Planche Latérale","Dead Bug"]
+ "A":[
+  {name:"Hip Thrust", target:"4×10–12", sets:4, reps:10},
+  {name:"Goblet Squat", target:"3×12", sets:3, reps:12},
+  {name:"Fentes Marchées", target:"3×12 / jambe", sets:3, reps:12},
+  {name:"Développé Couché", target:"4×8–10", sets:4, reps:8},
+  {name:"Développé Militaire", target:"3×10", sets:3, reps:10},
+  {name:"Extension Triceps (poulie)", target:"3×12–15", sets:3, reps:12},
+  {name:"Planche (sec)", target:"3×20–30 s", sets:3, reps:20}
+ ],
+ "B":[
+  {name:"Tirage Vertical / Tractions", target:"4×8–10", sets:4, reps:8},
+  {name:"Rowing Haltère", target:"3×12 / bras", sets:3, reps:12},
+  {name:"Face Pull", target:"3×15", sets:3, reps:15},
+  {name:"Hip Thrust", target:"4×10–12", sets:4, reps:10},
+  {name:"Leg Extension", target:"3×12–15", sets:3, reps:12},
+  {name:"Curl Biceps", target:"3×12", sets:3, reps:12},
+  {name:"Bird-Dog", target:"3×8 / côté", sets:3, reps:8}
+ ],
+ "C":[
+  {name:"Développé Incliné", target:"4×10", sets:4, reps:10},
+  {name:"Élévations Latérales", target:"3×12–15", sets:3, reps:12},
+  {name:"Glute Bridge", target:"3×15", sets:3, reps:15},
+  {name:"Leg Curl", target:"3×12", sets:3, reps:12},
+  {name:"Presse à Cuisses", target:"3×12", sets:3, reps:12},
+  {name:"Curl Incliné", target:"3×12", sets:3, reps:12},
+  {name:"Planche Latérale", target:"3×20–30 s / côté", sets:3, reps:20},
+  {name:"Dead Bug", target:"3×10 / côté", sets:3, reps:10}
+ ]
 };
-const KEY="suivi-sessions";
+const KEY="suivi-sessions-v3";
 let data=JSON.parse(localStorage.getItem(KEY)||"[]");
 const $=id=>document.getElementById(id);
 const exoList=$("exoList"),tableBody=$("tableBody"),filter=$("filterExercise"),metric=$("metric"),chart=$("chart").getContext("2d");
 $("date").valueAsDate=new Date();
-function buildInputs(s){
+
+function buildInputs(sessionKey){
   exoList.innerHTML="";
-  PROGRAM[s].forEach(name=>{
-    let div=document.createElement("div");
-    div.className="exo-grid";
-    div.innerHTML=`<b>${name}</b>
-      <input placeholder="kg" data-w type="number">
-      <input placeholder="séries" data-s type="number">
-      <input placeholder="reps" data-r type="number">
-      <input placeholder="notes" data-n>
-      <button data-add>+</button>`;
-    div.querySelector("[data-add]").onclick=()=>{
-      addEntry(name,s,div);
-    };
-    exoList.appendChild(div);
+  PROGRAM[sessionKey].forEach(ex=>{
+    const row=document.createElement("div");
+    row.className="exo-grid";
+    row.innerHTML=`
+      <div><b>${ex.name}</b> <span class="tag">Cible: ${ex.target}</span></div>
+      <div><label>Poids (kg)</label><input data-w type="number" step="0.5" placeholder="0"></div>
+      <div><label>Séries</label><input data-s type="number" value="${ex.sets}"></div>
+      <div><label>Répétitions</label><input data-r type="number" value="${ex.reps}"></div>
+      <div><label>Notes</label><input data-n placeholder="RPE, douleur, tempo…"></div>
+      <div><button class="btn" data-add>+ Ajouter</button></div>`;
+    row.querySelector("[data-add]").onclick=()=>addEntry(ex.name,sessionKey,row);
+    exoList.appendChild(row);
   });
 }
 function addEntry(name,s,row){
-  let e={id:crypto.randomUUID(),date:$("date").value,session:s,exercise:name,
+  const e={
+    id:crypto.randomUUID(),
+    date:$("date").value,
+    session:s,
+    exercise:name,
     weight:+row.querySelector("[data-w]").value||0,
     sets:+row.querySelector("[data-s]").value||0,
     reps:+row.querySelector("[data-r]").value||0,
-    notes:row.querySelector("[data-n]").value||""};
-  if(e.sets>0&&e.reps>0){data.push(e);save();}
+    notes:row.querySelector("[data-n]").value||""
+  };
+  if(e.sets>0&&e.reps>0){data.push(e);save();}else alert("Séries et reps obligatoires");
 }
-$("saveSessionBtn").onclick=()=>{
-  [...exoList.children].forEach(row=>{
-    let name=row.querySelector("b").textContent;
-    addEntry(name,$("session").value,row);
-  });
-};
+$("saveSessionBtn").onclick=()=>[...exoList.children].forEach(row=>addEntry(row.querySelector("b").textContent,$("session").value,row));
 $("clearBtn").onclick=()=>{if(confirm("Tout supprimer?")){data=[];save();}};
 $("exportBtn").onclick=()=>{
   let a=document.createElement("a");
@@ -116,50 +143,40 @@ $("exportBtn").onclick=()=>{
 };
 $("importFile").onchange=e=>{
   let f=e.target.files[0];if(!f)return;
-  let r=new FileReader();r.onload=()=>{data=JSON.parse(r.result);save();};r.readAsText(f);
+  let r=new FileReader();r.onload=()=>{data=JSON.parse(r.result)||[];save();};r.readAsText(f);
 };
 $("session").onchange=()=>buildInputs($("session").value);
 function save(){localStorage.setItem(KEY,JSON.stringify(data));render();}
 function render(){
   $("count").textContent=data.length;
   tableBody.innerHTML="";
-  let sel=filter.value||"Tous";
+  const sel=filter.value||"Tous";
   data.forEach(r=>{
     if(sel!=="Tous"&&r.exercise!==sel)return;
+    const vol=r.weight*r.sets*r.reps;
     let tr=document.createElement("tr");
-    let vol=r.weight*r.sets*r.reps;
     tr.innerHTML=`<td>${r.date}</td><td>${r.session}</td><td>${r.exercise}</td>
       <td>${r.weight}</td><td>${r.sets}×${r.reps}</td><td>${vol}</td><td>${r.notes}</td>
-      <td><button onclick="del('${r.id}')">X</button></td>`;
+      <td><button onclick="delEntry('${r.id}')">X</button></td>`;
     tableBody.appendChild(tr);
   });
-  draw();
   let exos=["Tous",...new Set(data.map(r=>r.exercise))];
-  filter.innerHTML=exos.map(e=>`<option>${e}</option>`).join("");
+  filter.innerHTML=exos.map(x=>`<option>${x}</option>`).join("");
+  draw();
 }
-function del(id){data=data.filter(r=>r.id!==id);save();}
+function delEntry(id){data=data.filter(r=>r.id!==id);save();}
 function draw(){
-  chart.clearRect(0,0,400,260);
-  let sel=filter.value||"Tous";
-  let m=metric.value;
-  let rows=data.filter(r=>sel==="Tous"||r.exercise===sel);
-  if(!rows.length)return;
-  let pts=rows.map((r,i)=>{
-    let y=m==="weight"?r.weight:m==="reps"?r.reps:r.weight*r.sets*r.reps;
-    return {x:i,y};
-  });
-  let max=Math.max(...pts.map(p=>p.y)),min=0;
-  chart.strokeStyle="#7cc5ff";chart.beginPath();
-  pts.forEach((p,i)=>{
-    let x=30+p.x*(340/(pts.length-1||1));
-    let y=220-(p.y-min)/(max-min||1)*180;
-    i?chart.lineTo(x,y):chart.moveTo(x,y);
-    chart.arc(x,y,2,0,6.28);chart.moveTo(x,y);
-  });
-  chart.stroke();
+  const ctx=chart;ctx.clearRect(0,0,400,260);
+  const sel=filter.value||"Tous";const m=metric.value;
+  const rows=data.filter(r=>sel==="Tous"||r.exercise===sel).sort((a,b)=>a.date.localeCompare(b.date));
+  if(!rows.length){ctx.fillStyle="#8b94a7";ctx.fillText("Aucune donnée",20,130);return;}
+  const pts=rows.map((r,i)=>({x:i,y:m==="weight"?r.weight:m==="reps"?r.reps:r.weight*r.sets*r.reps}));
+  const max=Math.max(...pts.map(p=>p.y),1);ctx.strokeStyle="#7cc5ff";ctx.beginPath();
+  pts.forEach((p,i)=>{let x=30+i*(340/Math.max(1,pts.length-1)),y=220-(p.y/max*180);
+    i?ctx.lineTo(x,y):ctx.moveTo(x,y);ctx.arc(x,y,2,0,6.28);ctx.moveTo(x,y);});
+  ctx.stroke();
 }
 buildInputs("A");render();
 </script>
 </body>
 </html>
-
